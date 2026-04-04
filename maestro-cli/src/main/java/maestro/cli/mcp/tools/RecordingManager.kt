@@ -100,9 +100,8 @@ class RecordingManager(
         }
 
         try {
-            val stopWallClockMs = clock()
-
             val videoFile = localSimulatorUtils.stopScreenRecording(state.screenRecording)
+            val stopWallClockMs = clock()
 
             val finalPath = if (state.outputPath != null) {
                 val dest = File(state.outputPath)
