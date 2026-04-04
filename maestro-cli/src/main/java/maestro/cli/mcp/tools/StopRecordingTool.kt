@@ -47,10 +47,24 @@ object StopRecordingTool {
                             addJsonObject {
                                 put("timestamp", entry.timestamp)
                                 put("event", entry.event)
-                                put("target", entry.target)
-                                putJsonArray("center") {
-                                    add(entry.centerX)
-                                    add(entry.centerY)
+                                entry.target?.let { put("target", it) }
+                                if (entry.centerX != null && entry.centerY != null) {
+                                    putJsonArray("center") {
+                                        add(entry.centerX)
+                                        add(entry.centerY)
+                                    }
+                                }
+                                if (entry.startX != null && entry.startY != null) {
+                                    putJsonArray("start_point") {
+                                        add(entry.startX)
+                                        add(entry.startY)
+                                    }
+                                }
+                                if (entry.endX != null && entry.endY != null) {
+                                    putJsonArray("end_point") {
+                                        add(entry.endX)
+                                        add(entry.endY)
+                                    }
                                 }
                             }
                         }

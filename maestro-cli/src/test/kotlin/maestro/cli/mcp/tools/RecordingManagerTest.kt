@@ -83,11 +83,12 @@ class RecordingManagerTest {
         currentTimeMs = 14_000L
         recordingManager.appendTapEvent("device-1", "button-2", 300, 400)
 
-        assertThat(state.tapEvents).hasSize(2)
-        assertThat(state.tapEvents[0].target).isEqualTo("button-1")
-        assertThat(state.tapEvents[0].wallClockMs).isEqualTo(12_000L)
-        assertThat(state.tapEvents[1].target).isEqualTo("button-2")
-        assertThat(state.tapEvents[1].centerX).isEqualTo(300)
+        assertThat(state.events).hasSize(2)
+        assertThat(state.events[0].event).isEqualTo("tap")
+        assertThat(state.events[0].target).isEqualTo("button-1")
+        assertThat(state.events[0].wallClockMs).isEqualTo(12_000L)
+        assertThat(state.events[1].target).isEqualTo("button-2")
+        assertThat(state.events[1].centerX).isEqualTo(300)
     }
 
     @Test
@@ -235,6 +236,66 @@ class RecordingManagerTest {
 
         assertThat(result.coordinateLog).isEmpty()
         assertThat(result.duration).isEqualTo(5.0)
+    }
+
+    @Test
+    fun `appendSwipeEvent is no-op when no recording active`() {
+        recordingManager.appendSwipeEvent("device-1", 0, 500, 0, 100)
+    }
+
+    @Test
+    fun `appendSwipeEvent accumulates swipe events during recording`() {
+        val state = recordingManager.startRecording("device-1", null)
+
+        currentTimeMs = 12_000L
+        recordingManager.appendSwipeEvent("device-1", 200, 800, 200, 200)
+
+        assertThat(state.events).hasSize(1)
+        assertThat(state.events[0].event).isEqualTo("swipe")
+        assertThat(state.events[0].target).isNull()
+        assertThat(state.events[0].startX).isEqualTo(200)
+        assertThat(state.events[0].startY).isEqualTo(800)
+        assertThat(state.events[0].endX).isEqualTo(200)
+        assertThat(state.events[0].endY).isEqualTo(200)
+    }
+
+    @Test
+    fun `stopRecording returns mixed tap and swipe events with correct timestamps`() {
+        val state = recordingManager.startRecording("device-1", null)
+
+        currentTimeMs = 12_000L
+        recordingManager.appendTapEvent("device-1", "General", 91, 343)
+
+        currentTimeMs = 13_000L
+        recordingManager.appendSwipeEvent("device-1", 200, 800, 200, 200)
+
+        currentTimeMs = 14_000L
+        recordingManager.appendTapEvent("device-1", "Keyboard", 116, 543)
+
+        // Stop at 15_000, duration=5.0 → actual_start=10_000
+        currentTimeMs = 15_000L
+        val result = recordingManager.stopRecording("device-1", state.recordingId)
+
+        assertThat(result.coordinateLog).hasSize(3)
+
+        val tap1 = result.coordinateLog[0]
+        assertThat(tap1.event).isEqualTo("tap")
+        assertThat(tap1.timestamp).isEqualTo(2.0)
+        assertThat(tap1.centerX).isEqualTo(91)
+
+        val swipe = result.coordinateLog[1]
+        assertThat(swipe.event).isEqualTo("swipe")
+        assertThat(swipe.timestamp).isEqualTo(3.0)
+        assertThat(swipe.startX).isEqualTo(200)
+        assertThat(swipe.startY).isEqualTo(800)
+        assertThat(swipe.endX).isEqualTo(200)
+        assertThat(swipe.endY).isEqualTo(200)
+        assertThat(swipe.target).isNull()
+
+        val tap2 = result.coordinateLog[2]
+        assertThat(tap2.event).isEqualTo("tap")
+        assertThat(tap2.timestamp).isEqualTo(4.0)
+        assertThat(tap2.target).isEqualTo("Keyboard")
     }
 
     @Test

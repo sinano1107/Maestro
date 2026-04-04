@@ -14,7 +14,7 @@ import java.io.File
 import java.nio.file.Files
 
 object RunFlowTool {
-    fun create(sessionManager: MaestroSessionManager): RegisteredTool {
+    fun create(sessionManager: MaestroSessionManager, recordingManager: RecordingManager = RecordingManager.getDefault()): RegisteredTool {
         return RegisteredTool(
             Tool(
                 name = "run_flow",
@@ -114,6 +114,29 @@ object RunFlowTool {
 
                         val flowResult = runBlocking {
                             orchestra.runFlow(commandsWithEnv)
+                        }
+
+                        if (flowResult.success) {
+                            for (cr in flowResult.commandResults) {
+                                val center = cr.bounds?.center()
+                                if (center != null) {
+                                    recordingManager.appendTapEvent(
+                                        deviceId = deviceId,
+                                        target = "flow",
+                                        centerX = center.x,
+                                        centerY = center.y
+                                    )
+                                }
+                                val sp = cr.startPoint
+                                val ep = cr.endPoint
+                                if (sp != null && ep != null) {
+                                    recordingManager.appendSwipeEvent(
+                                        deviceId = deviceId,
+                                        startX = sp.x, startY = sp.y,
+                                        endX = ep.x, endY = ep.y
+                                    )
+                                }
+                            }
                         }
 
                         buildJsonObject {

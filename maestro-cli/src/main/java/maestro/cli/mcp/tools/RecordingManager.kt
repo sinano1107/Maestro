@@ -7,11 +7,16 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-data class TapEvent(
+data class InteractionEvent(
     val wallClockMs: Long,
-    val target: String,
-    val centerX: Int,
-    val centerY: Int
+    val event: String,
+    val target: String?,
+    val centerX: Int?,
+    val centerY: Int?,
+    val startX: Int? = null,
+    val startY: Int? = null,
+    val endX: Int? = null,
+    val endY: Int? = null
 )
 
 data class RecordingState(
@@ -20,7 +25,7 @@ data class RecordingState(
     val screenRecording: LocalSimulatorUtils.ScreenRecording,
     val outputPath: String?,
     val startWallClockMs: Long,
-    val tapEvents: MutableList<TapEvent> = mutableListOf()
+    val events: MutableList<InteractionEvent> = mutableListOf()
 )
 
 data class StopRecordingResult(
@@ -32,9 +37,13 @@ data class StopRecordingResult(
 data class CoordinateLogEntry(
     val timestamp: Double,
     val event: String,
-    val target: String,
-    val centerX: Int,
-    val centerY: Int
+    val target: String?,
+    val centerX: Int?,
+    val centerY: Int?,
+    val startX: Int? = null,
+    val startY: Int? = null,
+    val endX: Int? = null,
+    val endY: Int? = null
 )
 
 class RecordingManager(
@@ -64,15 +73,22 @@ class RecordingManager(
 
     fun appendTapEvent(deviceId: String, target: String, centerX: Int, centerY: Int) {
         val state = activeRecordings[deviceId] ?: return
-        synchronized(state.tapEvents) {
-            state.tapEvents.add(
-                TapEvent(
-                    wallClockMs = clock(),
-                    target = target,
-                    centerX = centerX,
-                    centerY = centerY
-                )
-            )
+        synchronized(state.events) {
+            state.events.add(InteractionEvent(
+                wallClockMs = clock(), event = "tap", target = target,
+                centerX = centerX, centerY = centerY
+            ))
+        }
+    }
+
+    fun appendSwipeEvent(deviceId: String, startX: Int, startY: Int, endX: Int, endY: Int) {
+        val state = activeRecordings[deviceId] ?: return
+        synchronized(state.events) {
+            state.events.add(InteractionEvent(
+                wallClockMs = clock(), event = "swipe", target = null,
+                centerX = null, centerY = null,
+                startX = startX, startY = startY, endX = endX, endY = endY
+            ))
         }
     }
 
@@ -100,15 +116,19 @@ class RecordingManager(
         val duration = videoDurationProvider(finalPath)
 
         val actualStartMs = stopWallClockMs - (duration * 1000).toLong()
-        val coordinateLog = synchronized(state.tapEvents) {
-            state.tapEvents.map { event ->
+        val coordinateLog = synchronized(state.events) {
+            state.events.map { event ->
                 val offsetSec = (event.wallClockMs - actualStartMs) / 1000.0
                 CoordinateLogEntry(
                     timestamp = offsetSec.coerceIn(0.0, duration),
-                    event = "tap",
+                    event = event.event,
                     target = event.target,
                     centerX = event.centerX,
-                    centerY = event.centerY
+                    centerY = event.centerY,
+                    startX = event.startX,
+                    startY = event.startY,
+                    endX = event.endX,
+                    endY = event.endY
                 )
             }
         }
