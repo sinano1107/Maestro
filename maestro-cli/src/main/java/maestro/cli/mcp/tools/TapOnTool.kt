@@ -114,10 +114,11 @@ object TapOnTool {
                     )
                     
                     val orchestra = Orchestra(session.maestro)
-                    val tapTimestamp = recordingManager.captureTimestamp()
+                    val beforeMs = recordingManager.captureTimestamp()
                     val flowResult = runBlocking {
                         orchestra.runFlow(listOf(MaestroCommand(command = command)))
                     }
+                    val afterMs = recordingManager.captureTimestamp()
 
                     if (flowResult.success) {
                         val center = flowResult.commandResults.firstOrNull()?.bounds?.center()
@@ -127,7 +128,7 @@ object TapOnTool {
                                 target = text ?: id ?: "unknown",
                                 centerX = center.x,
                                 centerY = center.y,
-                                timestampMs = tapTimestamp
+                                timestampMs = (beforeMs + afterMs) / 2
                             )
                         }
                     }

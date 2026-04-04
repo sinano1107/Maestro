@@ -112,12 +112,14 @@ object RunFlowTool {
                         
                         val orchestra = Orchestra(session.maestro)
 
-                        val flowTimestamp = recordingManager.captureTimestamp()
+                        val beforeMs = recordingManager.captureTimestamp()
                         val flowResult = runBlocking {
                             orchestra.runFlow(commandsWithEnv)
                         }
+                        val afterMs = recordingManager.captureTimestamp()
 
                         if (flowResult.success) {
+                            val midMs = (beforeMs + afterMs) / 2
                             for (cr in flowResult.commandResults) {
                                 val sp = cr.startPoint
                                 val ep = cr.endPoint
@@ -126,7 +128,7 @@ object RunFlowTool {
                                         deviceId = deviceId,
                                         startX = sp.x, startY = sp.y,
                                         endX = ep.x, endY = ep.y,
-                                        timestampMs = flowTimestamp
+                                        timestampMs = midMs
                                     )
                                 }
                             }
