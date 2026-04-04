@@ -11,7 +11,7 @@ import maestro.orchestra.MaestroCommand
 import kotlinx.coroutines.runBlocking
 
 object TapOnTool {
-    fun create(sessionManager: MaestroSessionManager): RegisteredTool {
+    fun create(sessionManager: MaestroSessionManager, recordingManager: RecordingManager = RecordingManager.getDefault()): RegisteredTool {
         return RegisteredTool(
             Tool(
                 name = "tap_on",
@@ -116,6 +116,18 @@ object TapOnTool {
                     val orchestra = Orchestra(session.maestro)
                     val flowResult = runBlocking {
                         orchestra.runFlow(listOf(MaestroCommand(command = command)))
+                    }
+
+                    if (flowResult.success) {
+                        val center = flowResult.commandResults.firstOrNull()?.bounds?.center()
+                        if (center != null) {
+                            recordingManager.appendTapEvent(
+                                deviceId = deviceId,
+                                target = text ?: id ?: "unknown",
+                                centerX = center.x,
+                                centerY = center.y
+                            )
+                        }
                     }
 
                     buildJsonObject {
