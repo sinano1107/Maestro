@@ -112,6 +112,7 @@ object RunFlowTool {
                         
                         val orchestra = Orchestra(session.maestro)
 
+                        val flowTimestamp = recordingManager.captureTimestamp()
                         val flowResult = runBlocking {
                             orchestra.runFlow(commandsWithEnv)
                         }
@@ -124,7 +125,8 @@ object RunFlowTool {
                                     recordingManager.appendSwipeEvent(
                                         deviceId = deviceId,
                                         startX = sp.x, startY = sp.y,
-                                        endX = ep.x, endY = ep.y
+                                        endX = ep.x, endY = ep.y,
+                                        timestampMs = flowTimestamp
                                     )
                                 }
                             }

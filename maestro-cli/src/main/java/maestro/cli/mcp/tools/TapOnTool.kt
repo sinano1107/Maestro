@@ -114,6 +114,7 @@ object TapOnTool {
                     )
                     
                     val orchestra = Orchestra(session.maestro)
+                    val tapTimestamp = recordingManager.captureTimestamp()
                     val flowResult = runBlocking {
                         orchestra.runFlow(listOf(MaestroCommand(command = command)))
                     }
@@ -125,7 +126,8 @@ object TapOnTool {
                                 deviceId = deviceId,
                                 target = text ?: id ?: "unknown",
                                 centerX = center.x,
-                                centerY = center.y
+                                centerY = center.y,
+                                timestampMs = tapTimestamp
                             )
                         }
                     }

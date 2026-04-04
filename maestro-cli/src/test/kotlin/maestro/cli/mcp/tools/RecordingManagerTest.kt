@@ -68,7 +68,7 @@ class RecordingManagerTest {
 
     @Test
     fun `appendTapEvent is no-op when no recording active`() {
-        recordingManager.appendTapEvent("device-1", "button", 100, 200)
+        recordingManager.appendTapEvent("device-1", "button", 100, 200, currentTimeMs)
     }
 
     @Test
@@ -76,10 +76,10 @@ class RecordingManagerTest {
         val state = recordingManager.startRecording("device-1", null)
 
         currentTimeMs = 12_000L
-        recordingManager.appendTapEvent("device-1", "button-1", 100, 200)
+        recordingManager.appendTapEvent("device-1", "button-1", 100, 200, currentTimeMs)
 
         currentTimeMs = 14_000L
-        recordingManager.appendTapEvent("device-1", "button-2", 300, 400)
+        recordingManager.appendTapEvent("device-1", "button-2", 300, 400, currentTimeMs)
 
         assertThat(state.events).hasSize(2)
         assertThat(state.events[0].event).isEqualTo("tap")
@@ -91,7 +91,7 @@ class RecordingManagerTest {
 
     @Test
     fun `appendSwipeEvent is no-op when no recording active`() {
-        recordingManager.appendSwipeEvent("device-1", 0, 500, 0, 100)
+        recordingManager.appendSwipeEvent("device-1", 0, 500, 0, 100, currentTimeMs)
     }
 
     @Test
@@ -99,7 +99,7 @@ class RecordingManagerTest {
         val state = recordingManager.startRecording("device-1", null)
 
         currentTimeMs = 12_000L
-        recordingManager.appendSwipeEvent("device-1", 200, 800, 200, 200)
+        recordingManager.appendSwipeEvent("device-1", 200, 800, 200, 200, currentTimeMs)
 
         assertThat(state.events).hasSize(1)
         assertThat(state.events[0].event).isEqualTo("swipe")
@@ -146,10 +146,10 @@ class RecordingManagerTest {
         val state = recordingManager.startRecording("device-1", null)
 
         currentTimeMs = 12_000L
-        recordingManager.appendTapEvent("device-1", "button-1", 100, 200)
+        recordingManager.appendTapEvent("device-1", "button-1", 100, 200, currentTimeMs)
 
         currentTimeMs = 14_000L
-        recordingManager.appendTapEvent("device-1", "button-2", 300, 400)
+        recordingManager.appendTapEvent("device-1", "button-2", 300, 400, currentTimeMs)
 
         // actual_start = 15_000 - 5000 = 10_000
         currentTimeMs = 15_000L
@@ -173,7 +173,7 @@ class RecordingManagerTest {
         val state = delayedManager.startRecording("device-1", null)
 
         currentTimeMs = 12_500L
-        delayedManager.appendTapEvent("device-1", "button", 150, 250)
+        delayedManager.appendTapEvent("device-1", "button", 150, 250, currentTimeMs)
 
         // actual_start = 15_000 - 3000 = 12_000
         currentTimeMs = 15_000L
@@ -187,10 +187,10 @@ class RecordingManagerTest {
         val state = recordingManager.startRecording("device-1", null)
 
         currentTimeMs = 9_000L
-        recordingManager.appendTapEvent("device-1", "early", 10, 20)
+        recordingManager.appendTapEvent("device-1", "early", 10, 20, currentTimeMs)
 
         currentTimeMs = 16_000L
-        recordingManager.appendTapEvent("device-1", "late", 30, 40)
+        recordingManager.appendTapEvent("device-1", "late", 30, 40, currentTimeMs)
 
         currentTimeMs = 15_000L
         val result = recordingManager.stopRecording("device-1", state.recordingId)
@@ -204,13 +204,13 @@ class RecordingManagerTest {
         val state = recordingManager.startRecording("device-1", null)
 
         currentTimeMs = 12_000L
-        recordingManager.appendTapEvent("device-1", "General", 91, 343)
+        recordingManager.appendTapEvent("device-1", "General", 91, 343, currentTimeMs)
 
         currentTimeMs = 13_000L
-        recordingManager.appendSwipeEvent("device-1", 200, 800, 200, 200)
+        recordingManager.appendSwipeEvent("device-1", 200, 800, 200, 200, currentTimeMs)
 
         currentTimeMs = 14_000L
-        recordingManager.appendTapEvent("device-1", "Keyboard", 116, 543)
+        recordingManager.appendTapEvent("device-1", "Keyboard", 116, 543, currentTimeMs)
 
         currentTimeMs = 15_000L
         val result = recordingManager.stopRecording("device-1", state.recordingId)

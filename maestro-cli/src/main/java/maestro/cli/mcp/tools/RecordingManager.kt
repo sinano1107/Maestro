@@ -73,21 +73,23 @@ class RecordingManager(
         return state
     }
 
-    fun appendTapEvent(deviceId: String, target: String, centerX: Int, centerY: Int) {
+    fun captureTimestamp(): Long = clock()
+
+    fun appendTapEvent(deviceId: String, target: String, centerX: Int, centerY: Int, timestampMs: Long) {
         val state = activeRecordings[deviceId] ?: return
         synchronized(state.events) {
             state.events.add(InteractionEvent(
-                wallClockMs = clock(), event = "tap", target = target,
+                wallClockMs = timestampMs, event = "tap", target = target,
                 centerX = centerX, centerY = centerY
             ))
         }
     }
 
-    fun appendSwipeEvent(deviceId: String, startX: Int, startY: Int, endX: Int, endY: Int) {
+    fun appendSwipeEvent(deviceId: String, startX: Int, startY: Int, endX: Int, endY: Int, timestampMs: Long) {
         val state = activeRecordings[deviceId] ?: return
         synchronized(state.events) {
             state.events.add(InteractionEvent(
-                wallClockMs = clock(), event = "swipe", target = null,
+                wallClockMs = timestampMs, event = "swipe", target = null,
                 centerX = null, centerY = null,
                 startX = startX, startY = startY, endX = endX, endY = endY
             ))
