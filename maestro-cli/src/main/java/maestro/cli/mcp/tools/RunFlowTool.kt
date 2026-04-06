@@ -34,6 +34,8 @@ object RunFlowTool {
                     Use the `inspect_view_hierarchy` tool to retrieve the current view hierarchy and use it to execute commands on the device.
                     Use the `cheat_sheet` tool to retrieve a summary of Maestro's flow syntax before using any of the other tools.
 
+                    When a recording is active (via start_recording), swipe events with absolute coordinates are automatically logged and included in stop_recording's coordinate_log. Swipes using direction (e.g. UP/DOWN) or relative coordinates (%) are NOT logged.
+
                     Examples of valid inputs:
                     ```
                     - tapOn: 123

@@ -15,7 +15,7 @@ object TapOnTool {
         return RegisteredTool(
             Tool(
                 name = "tap_on",
-                description = "Tap on a UI element by selector or description",
+                description = "Tap on a UI element by selector or description. When a recording is active (via start_recording), the tap coordinates are automatically logged and included in stop_recording's coordinate_log.",
                 inputSchema = Tool.Input(
                     properties = buildJsonObject {
                         putJsonObject("device_id") {

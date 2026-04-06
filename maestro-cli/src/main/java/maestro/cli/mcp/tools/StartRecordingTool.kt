@@ -9,7 +9,7 @@ object StartRecordingTool {
         return RegisteredTool(
             Tool(
                 name = "start_recording",
-                description = "Start recording the iOS Simulator screen. Only supported on macOS with iOS Simulator. Uses xcrun simctl io recordVideo internally.",
+                description = "Start recording the iOS Simulator screen. While recording is active, tap_on and run_flow automatically log coordinates. Call stop_recording to get the video file and coordinate_log. Only supported on macOS with iOS Simulator.",
                 inputSchema = Tool.Input(
                     properties = buildJsonObject {
                         putJsonObject("device_id") {
