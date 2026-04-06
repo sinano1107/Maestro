@@ -14,7 +14,7 @@ import java.io.File
 import java.nio.file.Files
 
 object RunFlowTool {
-    fun create(sessionManager: MaestroSessionManager): RegisteredTool {
+    fun create(sessionManager: MaestroSessionManager, recordingManager: RecordingManager = RecordingManager.getDefault()): RegisteredTool {
         return RegisteredTool(
             Tool(
                 name = "run_flow",
@@ -33,6 +33,8 @@ object RunFlowTool {
 
                     Use the `inspect_view_hierarchy` tool to retrieve the current view hierarchy and use it to execute commands on the device.
                     Use the `cheat_sheet` tool to retrieve a summary of Maestro's flow syntax before using any of the other tools.
+
+                    When a recording is active (via start_recording), swipe events with absolute coordinates are automatically logged and included in stop_recording's coordinate_log. Swipes using direction (e.g. UP/DOWN) or relative coordinates (%) are NOT logged.
 
                     Examples of valid inputs:
                     ```
@@ -112,8 +114,26 @@ object RunFlowTool {
                         
                         val orchestra = Orchestra(session.maestro)
 
+                        val beforeMs = recordingManager.captureTimestamp()
                         val flowResult = runBlocking {
                             orchestra.runFlow(commandsWithEnv)
+                        }
+                        val afterMs = recordingManager.captureTimestamp()
+
+                        if (flowResult.success) {
+                            val midMs = (beforeMs + afterMs) / 2
+                            for (cr in flowResult.commandResults) {
+                                val sp = cr.startPoint
+                                val ep = cr.endPoint
+                                if (sp != null && ep != null) {
+                                    recordingManager.appendSwipeEvent(
+                                        deviceId = deviceId,
+                                        startX = sp.x, startY = sp.y,
+                                        endX = ep.x, endY = ep.y,
+                                        timestampMs = midMs
+                                    )
+                                }
+                            }
                         }
 
                         buildJsonObject {

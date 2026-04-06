@@ -11,11 +11,11 @@ import maestro.orchestra.MaestroCommand
 import kotlinx.coroutines.runBlocking
 
 object TapOnTool {
-    fun create(sessionManager: MaestroSessionManager): RegisteredTool {
+    fun create(sessionManager: MaestroSessionManager, recordingManager: RecordingManager = RecordingManager.getDefault()): RegisteredTool {
         return RegisteredTool(
             Tool(
                 name = "tap_on",
-                description = "Tap on a UI element by selector or description",
+                description = "Tap on a UI element by selector or description. When a recording is active (via start_recording), the tap coordinates are automatically logged and included in stop_recording's coordinate_log.",
                 inputSchema = Tool.Input(
                     properties = buildJsonObject {
                         putJsonObject("device_id") {
@@ -114,8 +114,23 @@ object TapOnTool {
                     )
                     
                     val orchestra = Orchestra(session.maestro)
+                    val beforeMs = recordingManager.captureTimestamp()
                     val flowResult = runBlocking {
                         orchestra.runFlow(listOf(MaestroCommand(command = command)))
+                    }
+                    val afterMs = recordingManager.captureTimestamp()
+
+                    if (flowResult.success) {
+                        val center = flowResult.commandResults.firstOrNull()?.bounds?.center()
+                        if (center != null) {
+                            recordingManager.appendTapEvent(
+                                deviceId = deviceId,
+                                target = text ?: id ?: "unknown",
+                                centerX = center.x,
+                                centerY = center.y,
+                                timestampMs = (beforeMs + afterMs) / 2
+                            )
+                        }
                     }
 
                     buildJsonObject {

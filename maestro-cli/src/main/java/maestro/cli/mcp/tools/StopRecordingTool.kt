@@ -9,7 +9,7 @@ object StopRecordingTool {
         return RegisteredTool(
             Tool(
                 name = "stop_recording",
-                description = "Stop an active iOS Simulator screen recording and return the video file path.",
+                description = "Stop an active iOS Simulator screen recording. Returns the video path, duration, and a coordinate log of tap/swipe events recorded during the session with timestamps corrected to video-relative time.",
                 inputSchema = Tool.Input(
                     properties = buildJsonObject {
                         putJsonObject("device_id") {
@@ -41,6 +41,34 @@ object StopRecordingTool {
                 val json = buildJsonObject {
                     put("success", true)
                     put("video_path", result.videoPath)
+                    put("duration", result.duration)
+                    putJsonArray("coordinate_log") {
+                        for (entry in result.coordinateLog) {
+                            addJsonObject {
+                                put("timestamp", entry.timestamp)
+                                put("event", entry.event)
+                                entry.target?.let { put("target", it) }
+                                if (entry.centerX != null && entry.centerY != null) {
+                                    putJsonArray("center") {
+                                        add(entry.centerX)
+                                        add(entry.centerY)
+                                    }
+                                }
+                                if (entry.startX != null && entry.startY != null) {
+                                    putJsonArray("start_point") {
+                                        add(entry.startX)
+                                        add(entry.startY)
+                                    }
+                                }
+                                if (entry.endX != null && entry.endY != null) {
+                                    putJsonArray("end_point") {
+                                        add(entry.endX)
+                                        add(entry.endY)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }.toString()
 
                 CallToolResult(content = listOf(TextContent(json)))

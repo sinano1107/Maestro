@@ -14,6 +14,8 @@ class RecordingManagerTest {
 
     private lateinit var localSimulatorUtils: LocalSimulatorUtils
     private lateinit var recordingManager: RecordingManager
+    private var currentTimeMs = 10_000L
+    private val fakeDuration = 5.0
 
     private val fakeProcess = mockk<Process>(relaxed = true) {
         every { isAlive } returns true
@@ -30,7 +32,11 @@ class RecordingManagerTest {
         every { localSimulatorUtils.startScreenRecording(any()) } returns fakeScreenRecording
         every { localSimulatorUtils.stopScreenRecording(any()) } returns fakeVideoFile
 
-        recordingManager = RecordingManager(localSimulatorUtils)
+        recordingManager = RecordingManager(
+            localSimulatorUtils = localSimulatorUtils,
+            clock = { currentTimeMs },
+            videoDurationProvider = { fakeDuration }
+        )
     }
 
     @Test
@@ -61,6 +67,50 @@ class RecordingManagerTest {
     }
 
     @Test
+    fun `appendTapEvent is no-op when no recording active`() {
+        recordingManager.appendTapEvent("device-1", "button", 100, 200, currentTimeMs)
+    }
+
+    @Test
+    fun `appendTapEvent accumulates events during recording`() {
+        val state = recordingManager.startRecording("device-1", null)
+
+        currentTimeMs = 12_000L
+        recordingManager.appendTapEvent("device-1", "button-1", 100, 200, currentTimeMs)
+
+        currentTimeMs = 14_000L
+        recordingManager.appendTapEvent("device-1", "button-2", 300, 400, currentTimeMs)
+
+        assertThat(state.events).hasSize(2)
+        assertThat(state.events[0].event).isEqualTo("tap")
+        assertThat(state.events[0].target).isEqualTo("button-1")
+        assertThat(state.events[0].wallClockMs).isEqualTo(12_000L)
+        assertThat(state.events[1].target).isEqualTo("button-2")
+        assertThat(state.events[1].centerX).isEqualTo(300)
+    }
+
+    @Test
+    fun `appendSwipeEvent is no-op when no recording active`() {
+        recordingManager.appendSwipeEvent("device-1", 0, 500, 0, 100, currentTimeMs)
+    }
+
+    @Test
+    fun `appendSwipeEvent accumulates swipe events during recording`() {
+        val state = recordingManager.startRecording("device-1", null)
+
+        currentTimeMs = 12_000L
+        recordingManager.appendSwipeEvent("device-1", 200, 800, 200, 200, currentTimeMs)
+
+        assertThat(state.events).hasSize(1)
+        assertThat(state.events[0].event).isEqualTo("swipe")
+        assertThat(state.events[0].target).isNull()
+        assertThat(state.events[0].startX).isEqualTo(200)
+        assertThat(state.events[0].startY).isEqualTo(800)
+        assertThat(state.events[0].endX).isEqualTo(200)
+        assertThat(state.events[0].endY).isEqualTo(200)
+    }
+
+    @Test
     fun `stopRecording throws if no recording active`() {
         val exception = assertThrows<IllegalStateException> {
             recordingManager.stopRecording("device-1", "some-id")
@@ -80,22 +130,129 @@ class RecordingManagerTest {
     }
 
     @Test
-    fun `stopRecording returns video path`() {
+    fun `stopRecording returns result with correct duration and video path`() {
         val state = recordingManager.startRecording("device-1", null)
 
+        currentTimeMs = 15_000L
         val result = recordingManager.stopRecording("device-1", state.recordingId)
 
+        assertThat(result.duration).isEqualTo(5.0)
         assertThat(result.videoPath).isEqualTo(fakeVideoFile.absolutePath)
         verify { localSimulatorUtils.stopScreenRecording(fakeScreenRecording) }
     }
 
     @Test
-    fun `stopRecording removes recording state so device can record again`() {
+    fun `stopRecording corrects timestamps to video-relative time`() {
+        val state = recordingManager.startRecording("device-1", null)
+
+        currentTimeMs = 12_000L
+        recordingManager.appendTapEvent("device-1", "button-1", 100, 200, currentTimeMs)
+
+        currentTimeMs = 14_000L
+        recordingManager.appendTapEvent("device-1", "button-2", 300, 400, currentTimeMs)
+
+        // actual_start = 15_000 - 5000 = 10_000
+        currentTimeMs = 15_000L
+        val result = recordingManager.stopRecording("device-1", state.recordingId)
+
+        assertThat(result.coordinateLog).hasSize(2)
+        assertThat(result.coordinateLog[0].timestamp).isEqualTo(2.0)
+        assertThat(result.coordinateLog[0].target).isEqualTo("button-1")
+        assertThat(result.coordinateLog[1].timestamp).isEqualTo(4.0)
+        assertThat(result.coordinateLog[1].target).isEqualTo("button-2")
+    }
+
+    @Test
+    fun `stopRecording handles recording startup delay correctly`() {
+        val delayedManager = RecordingManager(
+            localSimulatorUtils = localSimulatorUtils,
+            clock = { currentTimeMs },
+            videoDurationProvider = { 3.0 }
+        )
+
+        val state = delayedManager.startRecording("device-1", null)
+
+        currentTimeMs = 12_500L
+        delayedManager.appendTapEvent("device-1", "button", 150, 250, currentTimeMs)
+
+        // actual_start = 15_000 - 3000 = 12_000
+        currentTimeMs = 15_000L
+        val result = delayedManager.stopRecording("device-1", state.recordingId)
+
+        assertThat(result.coordinateLog[0].timestamp).isEqualTo(0.5)
+    }
+
+    @Test
+    fun `stopRecording clamps timestamps to 0 and duration`() {
+        val state = recordingManager.startRecording("device-1", null)
+
+        currentTimeMs = 9_000L
+        recordingManager.appendTapEvent("device-1", "early", 10, 20, currentTimeMs)
+
+        currentTimeMs = 16_000L
+        recordingManager.appendTapEvent("device-1", "late", 30, 40, currentTimeMs)
+
+        currentTimeMs = 15_000L
+        val result = recordingManager.stopRecording("device-1", state.recordingId)
+
+        assertThat(result.coordinateLog[0].timestamp).isEqualTo(0.0)
+        assertThat(result.coordinateLog[1].timestamp).isEqualTo(5.0)
+    }
+
+    @Test
+    fun `stopRecording returns mixed tap and swipe events with correct timestamps`() {
+        val state = recordingManager.startRecording("device-1", null)
+
+        currentTimeMs = 12_000L
+        recordingManager.appendTapEvent("device-1", "General", 91, 343, currentTimeMs)
+
+        currentTimeMs = 13_000L
+        recordingManager.appendSwipeEvent("device-1", 200, 800, 200, 200, currentTimeMs)
+
+        currentTimeMs = 14_000L
+        recordingManager.appendTapEvent("device-1", "Keyboard", 116, 543, currentTimeMs)
+
+        currentTimeMs = 15_000L
+        val result = recordingManager.stopRecording("device-1", state.recordingId)
+
+        assertThat(result.coordinateLog).hasSize(3)
+
+        val tap1 = result.coordinateLog[0]
+        assertThat(tap1.event).isEqualTo("tap")
+        assertThat(tap1.timestamp).isEqualTo(2.0)
+        assertThat(tap1.centerX).isEqualTo(91)
+
+        val swipe = result.coordinateLog[1]
+        assertThat(swipe.event).isEqualTo("swipe")
+        assertThat(swipe.timestamp).isEqualTo(3.0)
+        assertThat(swipe.startX).isEqualTo(200)
+        assertThat(swipe.endY).isEqualTo(200)
+        assertThat(swipe.target).isNull()
+
+        val tap2 = result.coordinateLog[2]
+        assertThat(tap2.event).isEqualTo("tap")
+        assertThat(tap2.timestamp).isEqualTo(4.0)
+        assertThat(tap2.target).isEqualTo("Keyboard")
+    }
+
+    @Test
+    fun `stopRecording removes state so device can record again`() {
         val state = recordingManager.startRecording("device-1", null)
         recordingManager.stopRecording("device-1", state.recordingId)
 
         val state2 = recordingManager.startRecording("device-1", null)
         assertThat(state2.recordingId).isNotEqualTo(state.recordingId)
+    }
+
+    @Test
+    fun `stopRecording with no events returns empty coordinate log`() {
+        val state = recordingManager.startRecording("device-1", null)
+
+        currentTimeMs = 15_000L
+        val result = recordingManager.stopRecording("device-1", state.recordingId)
+
+        assertThat(result.coordinateLog).isEmpty()
+        assertThat(result.duration).isEqualTo(5.0)
     }
 
     @Test
@@ -106,6 +263,7 @@ class RecordingManagerTest {
 
         val state = recordingManager.startRecording("device-1", outputFile.absolutePath)
 
+        currentTimeMs = 15_000L
         val result = recordingManager.stopRecording("device-1", state.recordingId)
 
         assertThat(result.videoPath).isEqualTo(outputFile.absolutePath)
